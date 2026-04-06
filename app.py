@@ -2,12 +2,13 @@ import streamlit as st
 from utils.resume_parser import parse_resume
 from utils.matcher import match_jobs
 from utils.company_info import get_company_info
+
 # Title
 st.title("💼 Job Search AI Assistant")
 st.write("Showing best available jobs for you 🚀")
 
 # -------------------------------
-# 🔍 WEEK 1–2: JOB SEARCH
+# Week 1–2: Job Search
 # -------------------------------
 st.header("🔍 Job Search")
 
@@ -21,7 +22,7 @@ if st.button("Search Jobs"):
         st.warning("Please enter both role and location")
 
 # -------------------------------
-# 📄 WEEK 3–4: RESUME ANALYSIS
+# Week 3–4: Resume Analysis
 # -------------------------------
 st.header("📄 Resume Analysis")
 
@@ -38,7 +39,7 @@ if st.button("Analyze Resume"):
         st.warning("Please enter resume text")
 
 # -------------------------------
-# 🏢 COMPANY INFO
+# Company Info
 # -------------------------------
 st.header("🏢 Company Info")
 
