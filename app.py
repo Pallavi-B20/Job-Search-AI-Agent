@@ -89,12 +89,7 @@ def filter_jobs(jobs):
         if notice != "All" and job["notice"] != int(notice):
             continue
 
-        # Match logic
-        if not user_skills:
-            match = 0
-        else:
-            match = sum(1 for s in user_skills if s in job["skills"])
-
+        match = sum(1 for s in user_skills if s in job["skills"]) if user_skills else 0
         job["match"] = match
         result.append(job)
 
@@ -103,7 +98,7 @@ def filter_jobs(jobs):
 jobs = filter_jobs(jobs_data)
 
 # -----------------------------
-# JOB TITLE DISPLAY
+# JOB DISPLAY
 # -----------------------------
 if user_skills:
     st.subheader("🎯 Recommended Jobs")
@@ -111,9 +106,6 @@ else:
     st.subheader("📋 All Jobs")
     st.info("Showing all jobs. Enter skills to get better matches.")
 
-# -----------------------------
-# DISPLAY JOBS
-# -----------------------------
 if jobs:
     for i, job in enumerate(jobs):
         st.write(f"### {job['title']}")
@@ -173,13 +165,43 @@ if file:
     st.write("✅ Skills Found:", found)
     st.write("❌ Missing Skills:", missing)
 
-    score = len(found) * 25
+    # Learning Recommendations
+    st.subheader("📚 Learning Recommendations")
+    for skill in missing:
+        st.write(f"👉 Learn {skill} to improve your resume")
+
+    # Score (0–100)
+    score = min(100, int((len(found) / len(keywords)) * 100))
     st.write(f"🎯 Resume Score: {score}/100")
 
-    if score < 50:
-        st.warning("⚠ Improve your skills to get better jobs")
+    if score < 40:
+        st.error("❌ Poor resume")
+    elif score < 70:
+        st.warning("⚠ Average resume")
     else:
-        st.success("✅ Good resume!")
+        st.success("✅ Strong resume")
+
+    # LinkedIn Suggestions
+    st.subheader("🔗 LinkedIn Profile Optimization")
+    st.write("✔ Add a professional profile photo")
+    st.write("✔ Write a strong headline")
+    st.write("✔ List your skills clearly")
+    st.write("✔ Add projects and internships")
+    st.write("✔ Keep your profile updated")
+
+# -----------------------------
+# LINKEDIN PROFILE INPUT
+# -----------------------------
+st.subheader("🔗 Enter Your LinkedIn Profile")
+
+linkedin_url = st.text_input("Paste your LinkedIn profile link")
+
+if linkedin_url:
+    if "linkedin.com" in linkedin_url:
+        st.success("✅ LinkedIn profile added successfully!")
+        st.markdown(f"[🔗 Open LinkedIn Profile]({linkedin_url})")
+    else:
+        st.warning("⚠ Please enter a valid LinkedIn profile link")
 
 # -----------------------------
 # SAVED JOBS
