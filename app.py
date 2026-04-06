@@ -89,13 +89,13 @@ def filter_jobs(jobs):
         if notice != "All" and job["notice"] != int(notice):
             continue
 
-        match = sum(1 for s in user_skills if s in job["skills"])
+        # Match logic
+        if not user_skills:
+            match = 0
+        else:
+            match = sum(1 for s in user_skills if s in job["skills"])
+
         job["match"] = match
-
-        # ✅ HIDE 0 MATCH JOBS
-        if user_skills and match == 0:
-            continue
-
         result.append(job)
 
     return sorted(result, key=lambda x: x["match"], reverse=True)
@@ -103,43 +103,45 @@ def filter_jobs(jobs):
 jobs = filter_jobs(jobs_data)
 
 # -----------------------------
-# SAVE JOB
+# JOB TITLE DISPLAY
 # -----------------------------
-def save_job(job):
-    conn = connect_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    INSERT INTO jobs (title, company, location, salary, link)
-    VALUES (?, ?, ?, ?, ?)
-    """, (job['title'], job['company'], job['location'], str(job['salary']), ""))
-
-    conn.commit()
-    conn.close()
+if user_skills:
+    st.subheader("🎯 Recommended Jobs")
+else:
+    st.subheader("📋 All Jobs")
+    st.info("Showing all jobs. Enter skills to get better matches.")
 
 # -----------------------------
 # DISPLAY JOBS
 # -----------------------------
-st.subheader("📋 Job Listings")
-
 if jobs:
     for i, job in enumerate(jobs):
         st.write(f"### {job['title']}")
         st.write(f"🏢 {job['company']}")
         st.write(f"📍 {job['location']}")
         st.write(f"💰 {job['salary']} LPA")
-        st.write(f"🧠 Match Score: {job['match']}")
 
-        # ✅ COMPANY BENEFITS
+        if job["match"] > 0:
+            st.success(f"🧠 Match Score: {job['match']}")
+        else:
+            st.write(f"🧠 Match Score: {job['match']}")
+
         st.write("🏆 Benefits: Health insurance, Flexible work")
 
         if st.button("💾 Save Job", key=i):
-            save_job(job)
+            conn = connect_db()
+            cursor = conn.cursor()
+            cursor.execute("""
+            INSERT INTO jobs (title, company, location, salary, link)
+            VALUES (?, ?, ?, ?, ?)
+            """, (job['title'], job['company'], job['location'], str(job['salary']), ""))
+            conn.commit()
+            conn.close()
             st.success("Job Saved!")
 
         st.markdown("---")
 else:
-    st.warning("No matching jobs found")
+    st.warning("No jobs found")
 
 # -----------------------------
 # RESUME ANALYSIS
@@ -163,7 +165,7 @@ if file:
 
     st.write("Resume Preview:", text[:200])
 
-    keywords = ["python", "sql", "ml", "excel"]
+    keywords = ["python", "sql", "ml", "excel", "java", "c++", "html", "css", "javascript"]
 
     found = [k for k in keywords if k in text]
     missing = [k for k in keywords if k not in text]
@@ -174,7 +176,6 @@ if file:
     score = len(found) * 25
     st.write(f"🎯 Resume Score: {score}/100")
 
-    # ✅ IMPROVED FEEDBACK
     if score < 50:
         st.warning("⚠ Improve your skills to get better jobs")
     else:
