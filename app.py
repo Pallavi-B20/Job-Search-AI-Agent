@@ -1,223 +1,121 @@
 import streamlit as st
-import sqlite3
+from agent import JobSearchAgent
+from tools import format_job_listings
 import PyPDF2
 
-# -----------------------------
-# DATABASE
-# -----------------------------
-def connect_db():
-    return sqlite3.connect("jobs.db")
+st.set_page_config(page_title="Job Search AI", layout="wide")
+st.title("💼 Comprehensive Job Search AI Assistant")
 
-def create_table():
-    conn = connect_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS jobs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT,
-        company TEXT,
-        location TEXT,
-        salary TEXT,
-        link TEXT
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-
-create_table()
+agent = JobSearchAgent()
 
 # -----------------------------
-# PAGE SETUP
+# CHAT SECTION
 # -----------------------------
-st.set_page_config(page_title="AI Job Agent", layout="wide")
-st.title("💼 AI Job Search & Resume Assistant")
-
-# -----------------------------
-# JOB DATA
-# -----------------------------
-jobs_data = [
-    {"title": "Software Engineer", "company": "TCS", "location": "Bangalore", "salary": 4, "skills": ["python", "sql"], "wfh": True, "notice": 30},
-    {"title": "Data Analyst", "company": "Infosys", "location": "Mumbai", "salary": 5, "skills": ["python", "excel"], "wfh": False, "notice": 60},
-    {"title": "Web Developer", "company": "Wipro", "location": "Delhi", "salary": 3, "skills": ["html", "css"], "wfh": True, "notice": 30},
-    {"title": "AI Engineer", "company": "Google", "location": "Bangalore", "salary": 10, "skills": ["python", "ml"], "wfh": True, "notice": 90},
-]
+st.header("💬 Chat with AI")
+user_question = st.text_input("Ask AI about career, resume, or jobs")
+if user_question:
+    with st.spinner("AI is thinking..."):
+        answer = agent.chat_with_agent(user_question)
+    st.success(answer)
 
 # -----------------------------
-# SIDEBAR FILTERS
+# JOB SEARCH SECTION
 # -----------------------------
-st.sidebar.header("🔍 Filters")
+st.header("🔍 Search Jobs")
+keyword = st.text_input("Job Title / Keyword", key="keyword")
+location = st.text_input("Location (Optional)", key="location")
+experience = st.text_input("Experience Filter (Optional, e.g., 1-3 yrs)", key="experience")
+skills = st.text_input("Your Skills (comma separated)", key="skills")
+resume_file = st.file_uploader("Upload your resume (PDF) for matching", type=["pdf"])
 
-location = st.sidebar.selectbox("Location", ["All", "Bangalore", "Mumbai", "Delhi"])
-salary = st.sidebar.selectbox("Salary (LPA)", ["All", "0-3", "3-6", "6+"])
-wfh = st.sidebar.checkbox("Work From Home")
-notice = st.sidebar.selectbox("Notice Period", ["All", "30", "60", "90"])
+if st.button("Search & Match Jobs"):
+    with st.spinner("Fetching jobs..."):
+        jobs = agent.search_jobs(keyword, location, experience)
+        st.subheader("📋 All Jobs Found")
+        st.text(format_job_listings(jobs))
 
-# -----------------------------
-# SKILLS INPUT
-# -----------------------------
-st.subheader("📄 Enter Your Skills")
+        # -----------------------------
+        # RESUME ANALYSIS (WEEK 5)
+        # -----------------------------
+        if resume_file:
+            st.subheader("📄 Resume Analysis")
 
-skills_input = st.text_input("Enter skills (Python, SQL, etc):")
+            # Extract text
+            pdf_reader = PyPDF2.PdfReader(resume_file)
+            resume_text = ""
+            for page in pdf_reader.pages:
+                if page.extract_text():
+                    resume_text += page.extract_text()
 
-if skills_input.strip():
-    user_skills = [s.strip().lower() for s in skills_input.split(",")]
-else:
-    user_skills = []
+            resume_text = resume_text.lower()
 
-# -----------------------------
-# FILTER FUNCTION
-# -----------------------------
-def filter_jobs(jobs):
-    result = []
+            st.write("Preview:", resume_text[:300])
 
-    for job in jobs:
-        if location != "All" and job["location"] != location:
-            continue
+            # ATS KEYWORDS
+            keywords = ["python", "sql", "ml", "excel", "java", "c++", "html", "css", "javascript"]
 
-        if salary == "0-3" and job["salary"] > 3:
-            continue
-        elif salary == "3-6" and (job["salary"] < 3 or job["salary"] > 6):
-            continue
-        elif salary == "6+" and job["salary"] < 6:
-            continue
+            found = [k for k in keywords if k in resume_text]
+            missing = [k for k in keywords if k not in resume_text]
 
-        if wfh and not job["wfh"]:
-            continue
+            st.write("✅ Skills Found:", found)
+            st.write("❌ Missing Skills:", missing)
 
-        if notice != "All" and job["notice"] != int(notice):
-            continue
+            # -----------------------------
+            # SKILL GAP + LEARNING (WEEK 6)
+            # -----------------------------
+            st.subheader("📚 Learning Recommendations")
+            for skill in missing:
+                st.write(f"👉 Learn {skill} to improve your resume")
 
-        match = sum(1 for s in user_skills if s in job["skills"]) if user_skills else 0
-        job["match"] = match
-        result.append(job)
+            # -----------------------------
+            # ATS SCORE (OUT OF 100)
+            # -----------------------------
+            score = min(100, int((len(found) / len(keywords)) * 100))
+            st.write(f"🎯 Resume Score: {score}/100")
 
-    return sorted(result, key=lambda x: x["match"], reverse=True)
+            if score < 40:
+                st.error("❌ Poor resume")
+            elif score < 70:
+                st.warning("⚠ Average resume")
+            else:
+                st.success("✅ Strong resume")
 
-jobs = filter_jobs(jobs_data)
-
-# -----------------------------
-# JOB DISPLAY
-# -----------------------------
-if user_skills:
-    st.subheader("🎯 Recommended Jobs")
-else:
-    st.subheader("📋 All Jobs")
-    st.info("Showing all jobs. Enter skills to get better matches.")
-
-if jobs:
-    for i, job in enumerate(jobs):
-        st.write(f"### {job['title']}")
-        st.write(f"🏢 {job['company']}")
-        st.write(f"📍 {job['location']}")
-        st.write(f"💰 {job['salary']} LPA")
-
-        if job["match"] > 0:
-            st.success(f"🧠 Match Score: {job['match']}")
-        else:
-            st.write(f"🧠 Match Score: {job['match']}")
-
-        st.write("🏆 Benefits: Health insurance, Flexible work")
-
-        if st.button("💾 Save Job", key=i):
-            conn = connect_db()
-            cursor = conn.cursor()
-            cursor.execute("""
-            INSERT INTO jobs (title, company, location, salary, link)
-            VALUES (?, ?, ?, ?, ?)
-            """, (job['title'], job['company'], job['location'], str(job['salary']), ""))
-            conn.commit()
-            conn.close()
-            st.success("Job Saved!")
-
-        st.markdown("---")
-else:
-    st.warning("No jobs found")
+        # -----------------------------
+        # SKILL MATCHING
+        # -----------------------------
+        if skills:
+            skill_list = [s.strip() for s in skills.split(",")]
+            matched_jobs = agent.match_jobs(jobs, skill_list)
+            st.subheader("🎯 Jobs Matching Your Skills")
+            st.text(format_job_listings(matched_jobs))
 
 # -----------------------------
-# RESUME ANALYSIS
+# COMPANY INFO SECTION
 # -----------------------------
-st.subheader("📄 Resume Analysis")
-
-file = st.file_uploader("Upload Resume (txt or pdf)", type=["txt", "pdf"])
-
-if file:
-    text = ""
-
-    if file.type == "application/pdf":
-        pdf_reader = PyPDF2.PdfReader(file)
-        for page in pdf_reader.pages:
-            if page.extract_text():
-                text += page.extract_text()
-    else:
-        text = file.read().decode("utf-8")
-
-    text = text.lower()
-
-    st.write("Resume Preview:", text[:200])
-
-    keywords = ["python", "sql", "ml", "excel", "java", "c++", "html", "css", "javascript"]
-
-    found = [k for k in keywords if k in text]
-    missing = [k for k in keywords if k not in text]
-
-    st.write("✅ Skills Found:", found)
-    st.write("❌ Missing Skills:", missing)
-
-    # Learning Recommendations
-    st.subheader("📚 Learning Recommendations")
-    for skill in missing:
-        st.write(f"👉 Learn {skill} to improve your resume")
-
-    # Score (0–100)
-    score = min(100, int((len(found) / len(keywords)) * 100))
-    st.write(f"🎯 Resume Score: {score}/100")
-
-    if score < 40:
-        st.error("❌ Poor resume")
-    elif score < 70:
-        st.warning("⚠ Average resume")
-    else:
-        st.success("✅ Strong resume")
-
-    # LinkedIn Suggestions
-    st.subheader("🔗 LinkedIn Profile Optimization")
-    st.write("✔ Add a professional profile photo")
-    st.write("✔ Write a strong headline")
-    st.write("✔ List your skills clearly")
-    st.write("✔ Add projects and internships")
-    st.write("✔ Keep your profile updated")
+st.header("🏢 Company Lookup")
+company_name = st.text_input("Enter Company Name for Info")
+if company_name and st.button("Lookup Company Info"):
+    info = agent.company_info(company_name)
+    st.info(info)
 
 # -----------------------------
-# LINKEDIN PROFILE INPUT
+# LINKEDIN FEATURE (WEEK 6)
 # -----------------------------
-st.subheader("🔗 Enter Your LinkedIn Profile")
+st.header("🔗 LinkedIn Profile")
 
 linkedin_url = st.text_input("Paste your LinkedIn profile link")
 
+st.write("💡 Enter your LinkedIn profile to get suggestions")
+
 if linkedin_url:
     if "linkedin.com" in linkedin_url:
-        st.success("✅ LinkedIn profile added successfully!")
-        st.markdown(f"[🔗 Open LinkedIn Profile]({linkedin_url})")
+        st.success("✅ Valid LinkedIn profile!")
+        st.markdown(f"[🔗 Open Profile]({linkedin_url})")
+
+        st.subheader("📈 Profile Improvement Tips")
+        st.write("✔ Add professional profile photo")
+        st.write("✔ Write strong headline")
+        st.write("✔ Add skills & projects")
+        st.write("✔ Keep profile updated")
     else:
-        st.warning("⚠ Please enter a valid LinkedIn profile link")
-
-# -----------------------------
-# SAVED JOBS
-# -----------------------------
-st.subheader("⭐ Saved Jobs")
-
-conn = connect_db()
-cursor = conn.cursor()
-cursor.execute("SELECT * FROM jobs")
-saved_jobs = cursor.fetchall()
-conn.close()
-
-if saved_jobs:
-    for job in saved_jobs:
-        st.write(f"### {job[1]}")
-        st.write(f"🏢 {job[2]} | 📍 {job[3]} | 💰 {job[4]}")
-        st.markdown("---")
-else:
-    st.info("No saved jobs yet")
+        st.warning("⚠ Please enter a valid LinkedIn link")
