@@ -1,3 +1,4 @@
-https://job-search-ai-agent-enee5rnjuovzfucqgupry9.streamlit.app
+https://job-search-ai-agent-enee5rnjuovzfucqgupry9.streamlit.app/
+
 
 https://github.com/Pallavi-B20/Job-Search-AI-Agent.git
